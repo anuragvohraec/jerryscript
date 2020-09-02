@@ -27,7 +27,7 @@
  #include "jcontext.h"
  #include "jrt.h"
 
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
 
 #define ECMA_BUILTINS_INTERNAL
 #include "ecma-builtins-internal.h"
@@ -53,7 +53,7 @@
  */
 ecma_value_t
 ecma_builtin_symbol_dispatch_call (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                   ecma_length_t arguments_list_len) /**< number of arguments */
+                                   uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -72,7 +72,7 @@ ecma_builtin_symbol_dispatch_call (const ecma_value_t *arguments_list_p, /**< ar
  */
 ecma_value_t
 ecma_builtin_symbol_dispatch_construct (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                        ecma_length_t arguments_list_len) /**< number of arguments */
+                                        uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -119,7 +119,15 @@ ecma_builtin_symbol_for_helper (ecma_value_t value_to_find) /**< symbol or ecma-
 
         if (is_for)
         {
-          ecma_string_t *symbol_desc_p = ecma_get_symbol_description (value_p);
+          ecma_value_t symbol_desc = ecma_get_symbol_description (value_p);
+
+          if (ecma_is_value_undefined (symbol_desc))
+          {
+            ecma_ref_ecma_string (value_p);
+            return ecma_make_symbol_value (value_p);
+          }
+
+          ecma_string_t *symbol_desc_p = ecma_get_string_from_value (symbol_desc);
 
           if (ecma_compare_ecma_strings (symbol_desc_p, string_p))
           {
@@ -133,9 +141,16 @@ ecma_builtin_symbol_for_helper (ecma_value_t value_to_find) /**< symbol or ecma-
         {
           if (string_p == value_p)
           {
-            ecma_string_t *symbol_desc_p = ecma_get_symbol_description (string_p);
+            ecma_value_t symbol_desc = ecma_get_symbol_description (string_p);
+
+            if (ecma_is_value_undefined (symbol_desc))
+            {
+              return symbol_desc;
+            }
+
+            ecma_string_t *symbol_desc_p = ecma_get_string_from_value (symbol_desc);
             ecma_ref_ecma_string (symbol_desc_p);
-            return ecma_make_string_value (symbol_desc_p);
+            return symbol_desc;
           }
         }
       }
@@ -241,4 +256,4 @@ ecma_builtin_symbol_key_for (ecma_value_t this_arg, /**< this argument */
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015) */
+#endif /* ENABLED (JERRY_ESNEXT) */

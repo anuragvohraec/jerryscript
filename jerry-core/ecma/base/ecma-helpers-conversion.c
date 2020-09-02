@@ -281,12 +281,86 @@ static const uint8_t ecma_uint4_clz[] = { 4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0,
 #define EPSILON 0.0000001
 
 /**
+ * ECMA-defined conversion from string to number for different radixes (2, 8, 16).
+ *
+ * See also:
+ *          ECMA-262 v5 9.3.1
+ *          ECMA-262 v6 7.1.3.1
+ *
+ * @return NaN - if the conversion fails
+ *         converted number - otherwise
+ */
+static ecma_number_t
+ecma_utf8_string_to_number_by_radix (const lit_utf8_byte_t *str_p, /**< utf-8 string */
+                                     const lit_utf8_byte_t *end_p, /**< end of utf-8 string  */
+                                     uint32_t radix) /**< radix */
+{
+  JERRY_ASSERT (radix == 2 || radix == 8 || radix == 16);
+  ecma_number_t num = ECMA_NUMBER_ZERO;
+
+#if ENABLED (JERRY_ESNEXT)
+  if (radix <= 8)
+  {
+    lit_code_point_t upper_limit = LIT_CHAR_0 + radix;
+
+    for (const lit_utf8_byte_t * iter_p = str_p;  iter_p <= end_p; iter_p++)
+    {
+      int32_t digit_value;
+
+      if (*iter_p >= LIT_CHAR_0 && *iter_p < upper_limit)
+      {
+        digit_value = (*iter_p - LIT_CHAR_0);
+      }
+      else
+      {
+        return ecma_number_make_nan ();
+      }
+
+      num = num * radix + (ecma_number_t) digit_value;
+    }
+
+    return num;
+  }
+#endif /* ENABLED (JERRY_ESNEXT) */
+
+  for (const lit_utf8_byte_t * iter_p = str_p; iter_p <= end_p; iter_p++)
+  {
+    int32_t digit_value;
+
+    if (*iter_p >= LIT_CHAR_0
+        && *iter_p <= LIT_CHAR_9)
+    {
+      digit_value = (*iter_p - LIT_CHAR_0);
+    }
+    else if (*iter_p >= LIT_CHAR_LOWERCASE_A
+            && *iter_p <= LIT_CHAR_LOWERCASE_F)
+    {
+      digit_value = 10 + (*iter_p - LIT_CHAR_LOWERCASE_A);
+    }
+    else if (*iter_p >= LIT_CHAR_UPPERCASE_A
+            && *iter_p <= LIT_CHAR_UPPERCASE_F)
+    {
+      digit_value = 10 + (*iter_p - LIT_CHAR_UPPERCASE_A);
+    }
+    else
+    {
+      return ecma_number_make_nan ();
+    }
+
+    num = num * radix + (ecma_number_t) digit_value;
+  }
+
+  return num;
+} /* ecma_utf8_string_to_number_by_radix */
+
+/**
  * ECMA-defined conversion of string to Number.
  *
  * See also:
  *          ECMA-262 v5, 9.3.1
  *
- * @return ecma-number
+ * @return NaN - if the conversion fails
+ *         converted number - otherwise
  */
 ecma_number_t
 ecma_utf8_string_to_number (const lit_utf8_byte_t *str_p, /**< utf-8 string */
@@ -307,46 +381,28 @@ ecma_utf8_string_to_number (const lit_utf8_byte_t *str_p, /**< utf-8 string */
     return ECMA_NUMBER_ZERO;
   }
 
-  if ((end_p >= str_p + 2)
-      && str_p[0] == LIT_CHAR_0
-      && (str_p[1] == LIT_CHAR_LOWERCASE_X
-          || str_p[1] == LIT_CHAR_UPPERCASE_X))
+  if (end_p >= str_p + 2
+      && str_p[0] == LIT_CHAR_0)
   {
-    /* Hex literal handling */
-    str_p += 2;
-
-    ecma_number_t num = ECMA_NUMBER_ZERO;
-
-    for (const lit_utf8_byte_t * iter_p = str_p;
-         iter_p <= end_p;
-         iter_p++)
+    switch (LEXER_TO_ASCII_LOWERCASE (str_p[1]))
     {
-      int32_t digit_value;
-
-      if (*iter_p >= LIT_CHAR_0
-          && *iter_p <= LIT_CHAR_9)
+      case LIT_CHAR_LOWERCASE_X :
       {
-        digit_value = (*iter_p - LIT_CHAR_0);
+        return ecma_utf8_string_to_number_by_radix (str_p + 2, end_p, 16);
       }
-      else if (*iter_p >= LIT_CHAR_LOWERCASE_A
-               && *iter_p <= LIT_CHAR_LOWERCASE_F)
+      case LIT_CHAR_LOWERCASE_O :
       {
-        digit_value = 10 + (*iter_p - LIT_CHAR_LOWERCASE_A);
+        return ecma_utf8_string_to_number_by_radix (str_p + 2, end_p, 8);
       }
-      else if (*iter_p >= LIT_CHAR_UPPERCASE_A
-               && *iter_p <= LIT_CHAR_UPPERCASE_F)
+      case LIT_CHAR_LOWERCASE_B :
       {
-        digit_value = 10 + (*iter_p - LIT_CHAR_UPPERCASE_A);
+        return ecma_utf8_string_to_number_by_radix (str_p + 2, end_p, 2);
       }
-      else
+      default:
       {
-        return ecma_number_make_nan ();
+        break;
       }
-
-      num = num * 16 + (ecma_number_t) digit_value;
     }
-
-    return num;
   }
 
   bool sign = false; /* positive */
@@ -703,9 +759,7 @@ ecma_uint32_to_utf8_string (uint32_t value, /**< value to convert */
 uint32_t
 ecma_number_to_uint32 (ecma_number_t num) /**< ecma-number */
 {
-  if (ecma_number_is_nan (num)
-      || ecma_number_is_zero (num)
-      || ecma_number_is_infinity (num))
+  if (JERRY_UNLIKELY (ecma_number_is_zero (num) || !ecma_number_is_finite (num)))
   {
     return 0;
   }
@@ -822,142 +876,6 @@ ecma_number_to_decimal (ecma_number_t num, /**< ecma-number */
 
   return ecma_errol0_dtoa ((double) num, out_digits_p, out_decimal_exp_p);
 } /* ecma_number_to_decimal */
-
-/**
- * Calculate the number of digits from the given double value whithout franction part
- *
- * @return number of digits
- */
-inline static int32_t JERRY_ATTR_ALWAYS_INLINE
-ecma_number_of_digits (double val) /**< ecma number */
-{
-  JERRY_ASSERT (fabs (fmod (val, 1.0)) < EPSILON);
-  int32_t exponent = 0;
-
-  while (val >= 1.0)
-  {
-    val /= 10.0;
-    exponent++;
-  }
-
-  return exponent;
-} /* ecma_number_of_digits */
-
-/**
- * Convert double value to ASCII
- */
-inline static void JERRY_ATTR_ALWAYS_INLINE
-ecma_double_to_ascii (double val, /**< ecma number */
-                      lit_utf8_byte_t *buffer_p, /**< buffer to generate digits into */
-                      int32_t num_of_digits, /**< number of digits */
-                      int32_t *exp_p) /**< [out] exponent */
-{
-  int32_t char_cnt = 0;
-
-  double divider = 10.0;
-  double prev_residual;
-  double mod_res = fmod (val, divider);
-
-  buffer_p[num_of_digits - 1 - char_cnt++] = (lit_utf8_byte_t) ((int) mod_res + '0');
-  divider *= 10.0;
-  prev_residual = mod_res;
-
-  while (char_cnt < num_of_digits)
-  {
-    mod_res = fmod (val, divider);
-    double residual = mod_res - prev_residual;
-    buffer_p[num_of_digits - 1 - char_cnt++] = (lit_utf8_byte_t) ((int) (residual / (divider / 10.0)) + '0');
-
-    divider *= 10.0;
-    prev_residual = mod_res;
-  }
-
-  *exp_p = char_cnt;
-} /* ecma_double_to_ascii */
-
-/**
- * Double to binary floating-point number conversion
- *
- * @return number of generated digits
- */
-static inline lit_utf8_size_t JERRY_ATTR_ALWAYS_INLINE
-ecma_double_to_binary_floating_point (double val, /**< ecma number */
-                                      lit_utf8_byte_t *buffer_p, /**< buffer to generate digits into */
-                                      int32_t *exp_p) /**< [out] exponent */
-{
-  int32_t char_cnt = 0;
-  double integer_part, fraction_part;
-
-  fraction_part = fmod (val, 1.0);
-  integer_part = floor (val);
-  int32_t num_of_digits = ecma_number_of_digits (integer_part);
-
-  if (fabs (integer_part) < EPSILON)
-  {
-    buffer_p[0] = '0';
-    char_cnt++;
-  }
-  else if (num_of_digits <= 16) /* Ensure that integer_part is not rounded */
-  {
-    while (integer_part > 0.0)
-    {
-      buffer_p[num_of_digits - 1 - char_cnt++] = (lit_utf8_byte_t) ((int) fmod (integer_part, 10.0) + '0');
-      integer_part = floor (integer_part / 10.0);
-    }
-  }
-  else if (num_of_digits <= 21)
-  {
-    ecma_double_to_ascii (integer_part, buffer_p, num_of_digits, &char_cnt);
-  }
-  else
-  {
-    /* According to ECMA-262 v5, 15.7.4.5, step 7: if x >= 10^21, then execution will continue with
-     * ToString(x) so in this case no further conversions are required. Number 21 in the else if condition
-     * above must be kept in sync with the number 21 in ecma_builtin_number_prototype_object_to_fixed
-     * method, step 7. */
-    *exp_p = num_of_digits;
-    return 0;
-  }
-
-  *exp_p = char_cnt;
-
-  while (fraction_part > 0 && char_cnt < ECMA_MAX_CHARS_IN_STRINGIFIED_NUMBER - 1)
-  {
-    fraction_part *= 10;
-    double tmp = fraction_part;
-    fraction_part = fmod (fraction_part, 1.0);
-    integer_part = floor (tmp);
-    buffer_p[char_cnt++] = (lit_utf8_byte_t) ('0' + (int) integer_part);
-  }
-
-  buffer_p[char_cnt] = '\0';
-
-  return (lit_utf8_size_t) (char_cnt - *exp_p);
-} /* ecma_double_to_binary_floating_point */
-
-/**
- * Perform conversion of ecma-number to equivalent binary floating-point number representation with decimal exponent.
- *
- * Note:
- *      The calculated values correspond to s, n, k parameters in ECMA-262 v5, 9.8.1, item 5:
- *         - parameter out_digits_p corresponds to s, the digits of the number;
- *         - parameter out_decimal_exp_p corresponds to n, the decimal exponent;
- *         - return value corresponds to k, the number of digits.
- *
- * @return the number of digits
- */
-lit_utf8_size_t
-ecma_number_to_binary_floating_point_number (ecma_number_t num, /**< ecma-number */
-                                             lit_utf8_byte_t *out_digits_p, /**< [out] buffer to fill with digits */
-                                             int32_t *out_decimal_exp_p) /**< [out] decimal exponent */
-{
-  JERRY_ASSERT (!ecma_number_is_nan (num));
-  JERRY_ASSERT (!ecma_number_is_zero (num));
-  JERRY_ASSERT (!ecma_number_is_infinity (num));
-  JERRY_ASSERT (!ecma_number_is_negative (num));
-
-  return ecma_double_to_binary_floating_point ((double) num, out_digits_p, out_decimal_exp_p);
-} /* ecma_number_to_binary_floating_point_number */
 
 /**
  * Convert ecma-number to zero-terminated string

@@ -19,7 +19,7 @@
 
 #include "ecma-builtin-helpers-macro-defines.inc.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY)
+#if ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 
 /* ES2015 22.2.3.4 */
 OBJECT_VALUE (LIT_MAGIC_STRING_CONSTRUCTOR,
@@ -30,31 +30,28 @@ OBJECT_VALUE (LIT_MAGIC_STRING_CONSTRUCTOR,
 /* ES2015 22.2.3.1 */
 ACCESSOR_READ_ONLY (LIT_MAGIC_STRING_BUFFER,
                     ecma_builtin_typedarray_prototype_buffer_getter,
-                    ECMA_PROPERTY_FIXED)
+                    ECMA_PROPERTY_FLAG_CONFIGURABLE)
 /* ES2015 22.2.3.2 */
 ACCESSOR_READ_ONLY (LIT_MAGIC_STRING_BYTE_LENGTH_UL,
                     ecma_builtin_typedarray_prototype_bytelength_getter,
-                    ECMA_PROPERTY_FIXED)
+                    ECMA_PROPERTY_FLAG_CONFIGURABLE)
 /* ES2015 22.2.3.3 */
 ACCESSOR_READ_ONLY (LIT_MAGIC_STRING_BYTE_OFFSET_UL,
                     ecma_builtin_typedarray_prototype_byteoffset_getter,
-                    ECMA_PROPERTY_FIXED)
+                    ECMA_PROPERTY_FLAG_CONFIGURABLE)
 
 /* ES2015 22.2.3.17 */
 ACCESSOR_READ_ONLY (LIT_MAGIC_STRING_LENGTH,
                     ecma_builtin_typedarray_prototype_length_getter,
-                    ECMA_PROPERTY_FIXED)
+                    ECMA_PROPERTY_FLAG_CONFIGURABLE)
 
-#if ENABLED (JERRY_ES2015)
 /* ECMA-262 v6, 23.1.3.13 */
 ACCESSOR_READ_ONLY (LIT_GLOBAL_SYMBOL_TO_STRING_TAG,
                     ecma_builtin_typedarray_prototype_to_string_tag_getter,
                     ECMA_PROPERTY_FLAG_CONFIGURABLE)
-#endif /* ENABLED (JERRY_ES2015) */
 
 /* Routine properties:
  *  (property name, C routine name, arguments number or NON_FIXED, value of the routine's length property) */
-ROUTINE (LIT_MAGIC_STRING_TO_STRING_UL, ecma_builtin_typedarray_prototype_object_to_string, 0, 0)
 ROUTINE (LIT_MAGIC_STRING_JOIN,  ecma_builtin_typedarray_prototype_join, 1, 1)
 ROUTINE (LIT_MAGIC_STRING_EVERY, ecma_builtin_typedarray_prototype_every, 2, 1)
 ROUTINE (LIT_MAGIC_STRING_SOME, ecma_builtin_typedarray_prototype_some, 2, 1)
@@ -75,16 +72,16 @@ ROUTINE (LIT_MAGIC_STRING_LAST_INDEX_OF_UL, ecma_builtin_typedarray_prototype_la
 ROUTINE (LIT_MAGIC_STRING_COPY_WITHIN, ecma_builtin_typedarray_prototype_copy_within, NON_FIXED, 2)
 ROUTINE (LIT_MAGIC_STRING_SLICE, ecma_builtin_typedarray_prototype_slice, NON_FIXED, 2)
 ROUTINE (LIT_MAGIC_STRING_TO_LOCALE_STRING_UL, ecma_builtin_typedarray_prototype_to_locale_string, 0, 0)
-
-#if ENABLED (JERRY_ES2015_BUILTIN_ITERATOR)
-
 ROUTINE (LIT_MAGIC_STRING_KEYS, ecma_builtin_typedarray_prototype_keys, 0, 0)
-ROUTINE (LIT_MAGIC_STRING_VALUES, ecma_builtin_typedarray_prototype_values, 0, 0)
 ROUTINE (LIT_MAGIC_STRING_ENTRIES, ecma_builtin_typedarray_prototype_entries, 0, 0)
-ROUTINE (LIT_GLOBAL_SYMBOL_ITERATOR, ecma_builtin_typedarray_prototype_values, 0, 0)
+INTRINSIC_PROPERTY (LIT_MAGIC_STRING_TO_STRING_UL, LIT_MAGIC_STRING_TO_STRING_UL,
+                    ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
+INTRINSIC_PROPERTY (LIT_MAGIC_STRING_VALUES, LIT_INTERNAL_MAGIC_STRING_TYPEDARRAY_PROTOTYPE_VALUES,
+                    ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
+INTRINSIC_PROPERTY (LIT_GLOBAL_SYMBOL_ITERATOR, LIT_INTERNAL_MAGIC_STRING_TYPEDARRAY_PROTOTYPE_VALUES,
+                    ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
+ROUTINE (LIT_MAGIC_STRING_INCLUDES, ecma_builtin_typedarray_prototype_includes, NON_FIXED, 1)
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_ITERATOR) */
-
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY) */
+#endif /* ENABLED (JERRY_BUILTIN_TYPEDARRAY) */
 
 #include "ecma-builtin-helpers-macro-undefs.inc.h"

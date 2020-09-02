@@ -19,10 +19,12 @@
 #include "ecma-globals.h"
 #include "ecma-helpers.h"
 #include "ecma-arraybuffer-object.h"
+#include "ecma-dataview-object.h"
 #include "ecma-try-catch-macro.h"
+#include "ecma-typedarray-object.h"
 #include "jrt.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY)
+#if ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 
 #define ECMA_BUILTINS_INTERNAL
 #include "ecma-builtins-internal.h"
@@ -55,11 +57,8 @@ ecma_builtin_arraybuffer_object_is_view (ecma_value_t this_arg, /**< 'this' argu
                                          ecma_value_t arg) /**< argument 1 */
 {
   JERRY_UNUSED (this_arg);
-  JERRY_UNUSED (arg);
 
-  /* TODO: if arg has [[ViewArrayBuffer]], return true */
-
-  return ECMA_VALUE_FALSE;
+  return ecma_make_boolean_value (ecma_is_typedarray (arg) || ecma_is_dataview (arg));
 } /* ecma_builtin_arraybuffer_object_is_view */
 
 /**
@@ -73,7 +72,7 @@ ecma_builtin_arraybuffer_object_is_view (ecma_value_t this_arg, /**< 'this' argu
  */
 ecma_value_t
 ecma_builtin_arraybuffer_dispatch_call (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                        ecma_length_t arguments_list_len) /**< number of arguments */
+                                        uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -87,7 +86,7 @@ ecma_builtin_arraybuffer_dispatch_call (const ecma_value_t *arguments_list_p, /*
  */
 ecma_value_t
 ecma_builtin_arraybuffer_dispatch_construct (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                             ecma_length_t arguments_list_len) /**< number of arguments */
+                                             uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -95,9 +94,21 @@ ecma_builtin_arraybuffer_dispatch_construct (const ecma_value_t *arguments_list_
 } /* ecma_builtin_arraybuffer_dispatch_construct */
 
 /**
+ * 24.1.3.3 get ArrayBuffer [ @@species ] accessor
+ *
+ * @return ecma_value
+ *         returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+ecma_builtin_arraybuffer_species_get (ecma_value_t this_value) /**< This Value */
+{
+  return ecma_copy_value (this_value);
+} /* ecma_builtin_arraybuffer_species_get */
+
+/**
  * @}
  * @}
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY) */
+#endif /* ENABLED (JERRY_BUILTIN_TYPEDARRAY) */

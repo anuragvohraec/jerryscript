@@ -14,6 +14,8 @@
  */
 
 #include "ecma-alloc.h"
+#include "ecma-bigint.h"
+#include "ecma-big-uint.h"
 #include "ecma-literal-storage.h"
 #include "ecma-helpers.h"
 #include "jcontext.h"
@@ -25,7 +27,7 @@
  * @{
  */
 
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
 /**
  * Free symbol list
  */
@@ -53,7 +55,7 @@ ecma_free_symbol_list (jmem_cpointer_t symbol_list_cp) /**< symbol list */
     symbol_list_cp = next_item_cp;
   }
 } /* ecma_free_symbol_list */
-#endif /* ENABLED (JERRY_ES2015) */
+#endif /* ENABLED (JERRY_ESNEXT) */
 
 /**
  * Free string list
@@ -87,27 +89,58 @@ ecma_free_string_list (jmem_cpointer_t string_list_cp) /**< string list */
  * Free number list
  */
 static void
-ecma_free_number_list (jmem_cpointer_t number_list_cp) /**< string list */
+ecma_free_number_list (jmem_cpointer_t number_list_cp) /**< number list */
 {
   while (number_list_cp != JMEM_CP_NULL)
   {
-    ecma_number_storage_item_t *number_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_number_storage_item_t,
-                                                                              number_list_cp);
+    ecma_lit_storage_item_t *number_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_lit_storage_item_t,
+                                                                           number_list_cp);
 
     for (int i = 0; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
     {
       if (number_list_p->values[i] != JMEM_CP_NULL)
       {
-        ecma_number_t *num_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_number_t, number_list_p->values[i]);
-        ecma_dealloc_number (num_p);
+        ecma_dealloc_number (JMEM_CP_GET_NON_NULL_POINTER (ecma_number_t, number_list_p->values[i]));
       }
     }
 
     jmem_cpointer_t next_item_cp = number_list_p->next_cp;
-    jmem_pools_free (number_list_p, sizeof (ecma_number_storage_item_t));
+    jmem_pools_free (number_list_p, sizeof (ecma_lit_storage_item_t));
     number_list_cp = next_item_cp;
   }
 } /* ecma_free_number_list */
+
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+
+/**
+ * Free bigint list
+ */
+static void
+ecma_free_bigint_list (jmem_cpointer_t bigint_list_cp) /**< bigint list */
+{
+  while (bigint_list_cp != JMEM_CP_NULL)
+  {
+    ecma_lit_storage_item_t *bigint_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_lit_storage_item_t,
+                                                                           bigint_list_cp);
+
+    for (int i = 0; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
+    {
+      if (bigint_list_p->values[i] != JMEM_CP_NULL)
+      {
+        ecma_extended_primitive_t *bigint_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_extended_primitive_t,
+                                                                            bigint_list_p->values[i]);
+        JERRY_ASSERT (ECMA_EXTENDED_PRIMITIVE_IS_REF_EQUALS_TO_ONE (bigint_p));
+        ecma_deref_bigint (bigint_p);
+      }
+    }
+
+    jmem_cpointer_t next_item_cp = bigint_list_p->next_cp;
+    jmem_pools_free (bigint_list_p, sizeof (ecma_lit_storage_item_t));
+    bigint_list_cp = next_item_cp;
+  }
+} /* ecma_free_bigint_list */
+
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
 
 /**
  * Finalize literal storage
@@ -115,11 +148,14 @@ ecma_free_number_list (jmem_cpointer_t number_list_cp) /**< string list */
 void
 ecma_finalize_lit_storage (void)
 {
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
   ecma_free_symbol_list (JERRY_CONTEXT (symbol_list_first_cp));
-#endif /* ENABLED (JERRY_ES2015) */
+#endif /* ENABLED (JERRY_ESNEXT) */
   ecma_free_string_list (JERRY_CONTEXT (string_list_first_cp));
   ecma_free_number_list (JERRY_CONTEXT (number_list_first_cp));
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+  ecma_free_bigint_list (JERRY_CONTEXT (bigint_list_first_cp));
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
 } /* ecma_finalize_lit_storage */
 
 /**
@@ -199,7 +235,7 @@ ecma_find_or_create_literal_string (const lit_utf8_byte_t *chars_p, /**< string 
 /**
  * Find or create a literal number.
  *
- * @return ecma_string_t compressed pointer
+ * @return ecma value
  */
 ecma_value_t
 ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be searched */
@@ -218,8 +254,8 @@ ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be 
 
   while (number_list_cp != JMEM_CP_NULL)
   {
-    ecma_number_storage_item_t *number_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_number_storage_item_t,
-                                                                              number_list_cp);
+    ecma_lit_storage_item_t *number_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_lit_storage_item_t,
+                                                                           number_list_cp);
 
     for (int i = 0; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
     {
@@ -246,10 +282,8 @@ ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be 
     number_list_cp = number_list_p->next_cp;
   }
 
-  ecma_number_t *num_p = ecma_get_pointer_from_float_value (num);
-
   jmem_cpointer_t result;
-  JMEM_CP_SET_NON_NULL_POINTER (result, num_p);
+  JMEM_CP_SET_NON_NULL_POINTER (result, ecma_get_pointer_from_float_value (num));
 
   if (empty_cpointer_p != NULL)
   {
@@ -257,8 +291,8 @@ ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be 
     return num;
   }
 
-  ecma_number_storage_item_t *new_item_p;
-  new_item_p = (ecma_number_storage_item_t *) jmem_pools_alloc (sizeof (ecma_number_storage_item_t));
+  ecma_lit_storage_item_t *new_item_p;
+  new_item_p = (ecma_lit_storage_item_t *) jmem_pools_alloc (sizeof (ecma_lit_storage_item_t));
 
   new_item_p->values[0] = result;
   for (int i = 1; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
@@ -271,6 +305,83 @@ ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be 
 
   return num;
 } /* ecma_find_or_create_literal_number */
+
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+
+/**
+ * Find or create a literal BigInt.
+ *
+ * @return BigInt value
+ */
+ecma_value_t
+ecma_find_or_create_literal_bigint (ecma_value_t bigint) /**< bigint to be searched */
+{
+  JERRY_ASSERT (ecma_is_value_bigint (bigint));
+
+  if (bigint == ECMA_BIGINT_ZERO)
+  {
+    return bigint;
+  }
+
+  jmem_cpointer_t bigint_list_cp = JERRY_CONTEXT (bigint_list_first_cp);
+  jmem_cpointer_t *empty_cpointer_p = NULL;
+
+  while (bigint_list_cp != JMEM_CP_NULL)
+  {
+    ecma_lit_storage_item_t *bigint_list_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_lit_storage_item_t,
+                                                                           bigint_list_cp);
+
+    for (int i = 0; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
+    {
+      if (bigint_list_p->values[i] == JMEM_CP_NULL)
+      {
+        if (empty_cpointer_p == NULL)
+        {
+          empty_cpointer_p = bigint_list_p->values + i;
+        }
+      }
+      else
+      {
+        ecma_extended_primitive_t *other_bigint_p = JMEM_CP_GET_NON_NULL_POINTER (ecma_extended_primitive_t,
+                                                                                  bigint_list_p->values[i]);
+        ecma_value_t other_bigint = ecma_make_extended_primitive_value (other_bigint_p, ECMA_TYPE_BIGINT);
+
+        if (ecma_bigint_is_equal_to_bigint (bigint, other_bigint))
+        {
+          ecma_free_value (bigint);
+          return other_bigint;
+        }
+      }
+    }
+
+    bigint_list_cp = bigint_list_p->next_cp;
+  }
+
+  jmem_cpointer_t result;
+  JMEM_CP_SET_NON_NULL_POINTER (result, ecma_get_extended_primitive_from_value (bigint));
+
+  if (empty_cpointer_p != NULL)
+  {
+    *empty_cpointer_p = result;
+    return bigint;
+  }
+
+  ecma_lit_storage_item_t *new_item_p;
+  new_item_p = (ecma_lit_storage_item_t *) jmem_pools_alloc (sizeof (ecma_lit_storage_item_t));
+
+  new_item_p->values[0] = result;
+  for (int i = 1; i < ECMA_LIT_STORAGE_VALUE_COUNT; i++)
+  {
+    new_item_p->values[i] = JMEM_CP_NULL;
+  }
+
+  new_item_p->next_cp = JERRY_CONTEXT (bigint_list_first_cp);
+  JMEM_CP_SET_NON_NULL_POINTER (JERRY_CONTEXT (bigint_list_first_cp), new_item_p);
+
+  return bigint;
+} /* ecma_find_or_create_literal_bigint */
+
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
 
 /**
  * Log2 of snapshot literal alignment.
@@ -285,12 +396,19 @@ ecma_find_or_create_literal_number (ecma_number_t number_arg) /**< number to be 
 /**
  * Literal offset shift.
  */
-#define JERRY_SNAPSHOT_LITERAL_SHIFT (ECMA_VALUE_SHIFT + 1)
+#define JERRY_SNAPSHOT_LITERAL_SHIFT (ECMA_VALUE_SHIFT + 2)
 
 /**
  * Literal value is number.
  */
 #define JERRY_SNAPSHOT_LITERAL_IS_NUMBER (1u << ECMA_VALUE_SHIFT)
+
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+/**
+ * Literal value is BigInt.
+ */
+#define JERRY_SNAPSHOT_LITERAL_IS_BIGINT (2u << ECMA_VALUE_SHIFT)
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
 
 #if ENABLED (JERRY_SNAPSHOT_SAVE)
 
@@ -301,7 +419,11 @@ void ecma_save_literals_append_value (ecma_value_t value, /**< value to be appen
                                       ecma_collection_t *lit_pool_p) /**< list of known values */
 {
   /* Unlike direct numbers, direct strings are converted to character literals. */
-  if (!ecma_is_value_string (value) && !ecma_is_value_float_number (value))
+  if (!ecma_is_value_string (value)
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+      && (!ecma_is_value_bigint (value) || value == ECMA_BIGINT_ZERO)
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
+      && !ecma_is_value_float_number (value))
   {
     return;
   }
@@ -329,12 +451,12 @@ ecma_save_literals_add_compiled_code (const ecma_compiled_code_t *compiled_code_
                                       ecma_collection_t *lit_pool_p) /**< list of known values */
 {
   ecma_value_t *literal_p;
-  uint32_t argument_end = 0;
+  uint32_t argument_end;
   uint32_t register_end;
   uint32_t const_literal_end;
   uint32_t literal_end;
 
-  JERRY_ASSERT (compiled_code_p->status_flags & CBC_CODE_FLAGS_FUNCTION);
+  JERRY_ASSERT (CBC_IS_FUNCTION (compiled_code_p->status_flags));
 
   if (compiled_code_p->status_flags & CBC_CODE_FLAGS_UINT16_ARGUMENTS)
   {
@@ -345,11 +467,7 @@ ecma_save_literals_add_compiled_code (const ecma_compiled_code_t *compiled_code_
     register_end = args_p->register_end;
     const_literal_end = args_p->const_literal_end - register_end;
     literal_end = args_p->literal_end - register_end;
-
-    if (CBC_NON_STRICT_ARGUMENTS_NEEDED (compiled_code_p))
-    {
-      argument_end = args_p->argument_end;
-    }
+    argument_end = args_p->argument_end;
   }
   else
   {
@@ -360,16 +478,15 @@ ecma_save_literals_add_compiled_code (const ecma_compiled_code_t *compiled_code_
     register_end = args_p->register_end;
     const_literal_end = args_p->const_literal_end - register_end;
     literal_end = args_p->literal_end - register_end;
-
-    if (CBC_NON_STRICT_ARGUMENTS_NEEDED (compiled_code_p))
-    {
-      argument_end = args_p->argument_end;
-    }
+    argument_end = args_p->argument_end;
   }
 
-  for (uint32_t i = 0; i < argument_end; i++)
+  if (compiled_code_p->status_flags & CBC_CODE_FLAGS_MAPPED_ARGUMENTS_NEEDED)
   {
-    ecma_save_literals_append_value (literal_p[i], lit_pool_p);
+    for (uint32_t i = 0; i < argument_end; i++)
+    {
+      ecma_save_literals_append_value (literal_p[i], lit_pool_p);
+    }
   }
 
   for (uint32_t i = 0; i < const_literal_end; i++)
@@ -382,23 +499,20 @@ ecma_save_literals_add_compiled_code (const ecma_compiled_code_t *compiled_code_
     ecma_compiled_code_t *bytecode_p = ECMA_GET_INTERNAL_VALUE_POINTER (ecma_compiled_code_t,
                                                                         literal_p[i]);
 
-    if ((bytecode_p->status_flags & CBC_CODE_FLAGS_FUNCTION)
+    if (CBC_IS_FUNCTION (bytecode_p->status_flags)
         && bytecode_p != compiled_code_p)
     {
       ecma_save_literals_add_compiled_code (bytecode_p, lit_pool_p);
     }
   }
 
-  if (argument_end != 0)
-  {
-    uint8_t *byte_p = (uint8_t *) compiled_code_p;
-    byte_p += ((size_t) compiled_code_p->size) << JMEM_ALIGNMENT_LOG;
-    literal_p = ((ecma_value_t *) byte_p) - argument_end;
+  uint8_t *byte_p = ((uint8_t *) compiled_code_p) + (((size_t) compiled_code_p->size) << JMEM_ALIGNMENT_LOG);
+  literal_p = ecma_snapshot_resolve_serializable_values ((ecma_compiled_code_t *) compiled_code_p, byte_p);
 
-    for (uint32_t i = 0; i < argument_end; i++)
-    {
-      ecma_save_literals_append_value (literal_p[i], lit_pool_p);
-    }
+  while (literal_p < (ecma_value_t *) byte_p)
+  {
+    ecma_save_literals_append_value (*literal_p, lit_pool_p);
+    literal_p++;
   }
 } /* ecma_save_literals_add_compiled_code */
 
@@ -444,6 +558,15 @@ ecma_save_literals_for_snapshot (ecma_collection_t *lit_pool_p, /**< list of kno
     {
       lit_table_size += (uint32_t) sizeof (ecma_number_t);
     }
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+    else if (ecma_is_value_bigint (lit_buffer_p[i]))
+    {
+      ecma_extended_primitive_t *bigint_p = ecma_get_extended_primitive_from_value (lit_buffer_p[i]);
+
+      lit_table_size += (uint32_t) JERRY_ALIGNUP (sizeof (uint32_t) + ECMA_BIGINT_GET_SIZE (bigint_p),
+                                                  JERRY_SNAPSHOT_LITERAL_ALIGNMENT);
+    }
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
     else
     {
       ecma_string_t *string_p = ecma_get_string_from_value (lit_buffer_p[i]);
@@ -461,7 +584,7 @@ ecma_save_literals_for_snapshot (ecma_collection_t *lit_pool_p, /**< list of kno
   }
 
   lit_mem_to_snapshot_id_map_entry_t *map_p;
-  ecma_length_t total_count = lit_pool_p->item_count;
+  uint32_t total_count = lit_pool_p->item_count;
 
   map_p = jmem_heap_alloc_block (total_count * sizeof (lit_mem_to_snapshot_id_map_entry_t));
 
@@ -483,7 +606,7 @@ ecma_save_literals_for_snapshot (ecma_collection_t *lit_pool_p, /**< list of kno
     map_p->literal_id = lit_buffer_p[i];
     map_p->literal_offset = (literal_offset << JERRY_SNAPSHOT_LITERAL_SHIFT) | ECMA_TYPE_SNAPSHOT_OFFSET;
 
-    ecma_length_t length;
+    lit_utf8_size_t length;
 
     if (ecma_is_value_float_number (lit_buffer_p[i]))
     {
@@ -494,6 +617,20 @@ ecma_save_literals_for_snapshot (ecma_collection_t *lit_pool_p, /**< list of kno
 
       length = JERRY_ALIGNUP (sizeof (ecma_number_t), JERRY_SNAPSHOT_LITERAL_ALIGNMENT);
     }
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+    else if (ecma_is_value_bigint (lit_buffer_p[i]))
+    {
+      map_p->literal_offset |= JERRY_SNAPSHOT_LITERAL_IS_BIGINT;
+
+      ecma_extended_primitive_t *bigint_p = ecma_get_extended_primitive_from_value (lit_buffer_p[i]);
+      uint32_t size = ECMA_BIGINT_GET_SIZE (bigint_p);
+
+      memcpy (destination_p, &bigint_p->u.bigint_sign_and_size, sizeof (uint32_t));
+      memcpy (destination_p + sizeof (uint32_t), ECMA_BIGINT_GET_DIGITS (bigint_p, 0), size);
+
+      length = JERRY_ALIGNUP (sizeof (uint32_t) + size, JERRY_SNAPSHOT_LITERAL_ALIGNMENT);
+    }
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
     else
     {
       ecma_string_t *string_p = ecma_get_string_from_value (lit_buffer_p[i]);
@@ -541,11 +678,72 @@ ecma_snapshot_get_literal (const uint8_t *literal_base_p, /**< literal start */
     return ecma_find_or_create_literal_number (num);
   }
 
+#if ENABLED (JERRY_BUILTIN_BIGINT)
+  if (literal_value & JERRY_SNAPSHOT_LITERAL_IS_BIGINT)
+  {
+    uint32_t bigint_sign_and_size = *(uint32_t *) literal_p;
+    uint32_t size = bigint_sign_and_size & ~(uint32_t) (sizeof (ecma_bigint_digit_t) - 1);
+
+    ecma_extended_primitive_t *bigint_p = ecma_bigint_create (size);
+
+    if (bigint_p == NULL)
+    {
+      jerry_fatal (ERR_OUT_OF_MEMORY);
+    }
+
+    /* Only the sign bit can differ. */
+    JERRY_ASSERT (bigint_p->u.bigint_sign_and_size == (bigint_sign_and_size & ~(uint32_t) ECMA_BIGINT_SIGN));
+
+    bigint_p->u.bigint_sign_and_size = bigint_sign_and_size;
+    memcpy (ECMA_BIGINT_GET_DIGITS (bigint_p, 0), literal_p + sizeof (uint32_t), size);
+    return ecma_find_or_create_literal_bigint (ecma_make_extended_primitive_value (bigint_p, ECMA_TYPE_BIGINT));
+  }
+#endif /* ENABLED (JERRY_BUILTIN_BIGINT) */
+
   uint16_t length = *(const uint16_t *) literal_p;
 
   return ecma_find_or_create_literal_string (literal_p + sizeof (uint16_t), length);
 } /* ecma_snapshot_get_literal */
 
+/**
+ * Compute the start of the serializable ecma-values of the bytecode
+ * Related values:
+ *  - function argument names, if CBC_CODE_FLAGS_MAPPED_ARGUMENTS_NEEDED is present
+ *  - function name, if CBC_CODE_FLAGS_CLASS_CONSTRUCTOR is not present and ES.next profile is enabled
+ *
+ * @return pointer to the beginning of the serializable ecma-values
+ */
+ecma_value_t *
+ecma_snapshot_resolve_serializable_values (ecma_compiled_code_t *compiled_code_p, /**< compiled code */
+                                           uint8_t *bytecode_end_p) /**< end of the bytecode */
+{
+  ecma_value_t *base_p = (ecma_value_t *) bytecode_end_p;
+
+  if (compiled_code_p->status_flags & CBC_CODE_FLAGS_MAPPED_ARGUMENTS_NEEDED)
+  {
+    uint32_t argument_end;
+    if (compiled_code_p->status_flags & CBC_CODE_FLAGS_UINT16_ARGUMENTS)
+    {
+      argument_end = ((cbc_uint16_arguments_t *) compiled_code_p)->argument_end;
+    }
+    else
+    {
+      argument_end = ((cbc_uint8_arguments_t *) compiled_code_p)->argument_end;
+    }
+
+    base_p -= argument_end;
+  }
+
+#if ENABLED (JERRY_ESNEXT)
+  /* function name */
+  if (CBC_FUNCTION_GET_TYPE (compiled_code_p->status_flags) != CBC_FUNCTION_CONSTRUCTOR)
+  {
+    base_p--;
+  }
+#endif /* ENABLED (JERRY_ESNEXT) */
+
+  return base_p;
+} /* ecma_snapshot_resolve_serializable_values */
 #endif /* ENABLED (JERRY_SNAPSHOT_EXEC) || ENABLED (JERRY_SNAPSHOT_SAVE) */
 
 /**

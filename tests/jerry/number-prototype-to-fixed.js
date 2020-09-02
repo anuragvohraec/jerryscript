@@ -33,15 +33,17 @@ assert((0.0).toFixed(0) === "0");
 assert((0.0).toFixed(1) === "0.0");
 assert((-0.0).toFixed(0) === "0");
 assert((-0.0).toFixed(1) === "0.0");
-assert((123456789012345678901.0).toFixed(20) === "123456789012345683968.00000000000000000000");
 assert((123.56).toFixed(NaN) === "124");
 assert((123.56).toFixed(-0.9) === "124");
 assert((0.095).toFixed(2) === "0.10");
-assert((0.995).toFixed(2) === "0.99");
-assert((9.995).toFixed(2) === "9.99");
+assert((0.995).toFixed(2) === "1.00")
+assert((9.995).toFixed(2) === "10.00");
 assert((7.995).toFixed(2) === "8.00");
-assert((8.995).toFixed(2) === "8.99");
+assert((8.995).toFixed(2) === "9.00");
 assert((99.995).toFixed(2) === "100.00");
+assert((12).toFixed(21) === "12.000000000000000000000");
+assert((-1111111111111111111111.12).toFixed(3) === "-1.1111111111111111e+21");
+assert((1111111111111111111111.12).toFixed(3) === "1.1111111111111111e+21");
 
 try {
     Number.prototype.toExponential.call(new Object());
@@ -57,9 +59,34 @@ try {
     assert(e instanceof RangeError)
 }
 
-try {
-    (12).toFixed(21);
-    assert(false);
-} catch (e) {
-    assert(e instanceof RangeError)
-}
+assert ((0.5).toFixed(0) === "1");
+assert ((1.5).toFixed(0) === "2");
+assert ((12.5).toFixed(0) === "13");
+assert ((123.5).toFixed(0) === "124");
+assert ((1234.5).toFixed(0) === "1235");
+assert ((0.567).toFixed(0) === "1");
+assert ((1.567).toFixed(0) === "2");
+assert ((12.567).toFixed(0) === "13");
+assert ((123.567).toFixed(0) === "124");
+assert ((1234.567).toFixed(0) === "1235");
+
+assert ((1.2567).toFixed(0) === "1");
+assert ((1.2567).toFixed(1) === "1.3");
+assert ((1.2567).toFixed(2) === "1.26");
+assert ((1.2567).toFixed(3) === "1.257");
+assert ((1.2567).toFixed(4) === "1.2567");
+assert ((1.2567).toFixed(5) === "1.25670");
+
+assert ((12.3567).toFixed(0) === "12");
+assert ((12.3567).toFixed(1) === "12.4");
+assert ((12.3567).toFixed(2) === "12.36");
+assert ((12.3567).toFixed(3) === "12.357");
+assert ((12.3567).toFixed(4) === "12.3567");
+assert ((12.3567).toFixed(5) === "12.35670");
+
+assert ((123.4567).toFixed(0) === "123");
+assert ((123.4567).toFixed(1) === "123.5");
+assert ((123.4567).toFixed(2) === "123.46");
+assert ((123.4567).toFixed(3) === "123.457");
+assert ((123.4567).toFixed(4) === "123.4567");
+assert ((123.4567).toFixed(5) === "123.45670");

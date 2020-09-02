@@ -17,7 +17,7 @@
 #include "ecma-exceptions.h"
 #include "ecma-container-object.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_MAP)
+#if ENABLED (JERRY_BUILTIN_MAP)
 
 #define ECMA_BUILTINS_INTERNAL
 #include "ecma-builtins-internal.h"
@@ -43,7 +43,7 @@
  */
 ecma_value_t
 ecma_builtin_map_dispatch_call (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                ecma_length_t arguments_list_len) /**< number of arguments */
+                                uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -57,7 +57,7 @@ ecma_builtin_map_dispatch_call (const ecma_value_t *arguments_list_p, /**< argum
  */
 ecma_value_t
 ecma_builtin_map_dispatch_construct (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                     ecma_length_t arguments_list_len) /**< number of arguments */
+                                     uint32_t arguments_list_len) /**< number of arguments */
 {
   return ecma_op_container_create (arguments_list_p,
                                    arguments_list_len,
@@ -66,9 +66,21 @@ ecma_builtin_map_dispatch_construct (const ecma_value_t *arguments_list_p, /**< 
 } /* ecma_builtin_map_dispatch_construct */
 
 /**
+ * 23.1.2.2 get Map [ @@species ] accessor
+ *
+ * @return ecma_value
+ *         returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+ecma_builtin_map_species_get (ecma_value_t this_value) /**< This Value */
+{
+  return ecma_copy_value (this_value);
+} /* ecma_builtin_map_species_get */
+
+/**
  * @}
  * @}
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_MAP) */
+#endif /* ENABLED (JERRY_BUILTIN_MAP) */

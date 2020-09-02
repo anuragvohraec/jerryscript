@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#include "jcontext.h"
+#include "ecma-function-object.h"
 #include "ecma-arraybuffer-object.h"
 #include "ecma-builtins.h"
 #include "ecma-exceptions.h"
@@ -22,7 +24,7 @@
 #include "ecma-typedarray-object.h"
 #include "ecma-objects.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_DATAVIEW)
+#if ENABLED (JERRY_BUILTIN_DATAVIEW)
 
 /** \addtogroup ecma ECMA
  * @{
@@ -42,9 +44,10 @@
  */
 ecma_value_t
 ecma_op_dataview_create (const ecma_value_t *arguments_list_p, /**< arguments list */
-                         ecma_length_t arguments_list_len) /**< number of arguments */
+                         uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
+  JERRY_ASSERT (JERRY_CONTEXT (current_new_target));
 
   ecma_value_t buffer = arguments_list_len > 0 ? arguments_list_p[0] : ECMA_VALUE_UNDEFINED;
 
@@ -63,25 +66,27 @@ ecma_op_dataview_create (const ecma_value_t *arguments_list_p, /**< arguments li
   }
 
   /* 4 - 6. */
-  int32_t offset = 0;
+  uint32_t offset = 0;
 
   if (arguments_list_len > 1)
   {
-    ecma_number_t number_offset;
-    ecma_value_t number_offset_value = ecma_get_number (arguments_list_p[1], &number_offset);
-
-    if (ECMA_IS_VALUE_ERROR (number_offset_value))
+    ecma_number_t number_offset, offset_num;
+    if (ECMA_IS_VALUE_ERROR (ecma_op_to_number (arguments_list_p[1], &number_offset)))
     {
-      return number_offset_value;
+      return ECMA_VALUE_ERROR;
+    }
+    if (ECMA_IS_VALUE_ERROR (ecma_op_to_integer (arguments_list_p[1], &offset_num)))
+    {
+      return ECMA_VALUE_ERROR;
     }
 
-    offset = ecma_number_to_int32 (number_offset);
-
     /* 7. */
-    if (number_offset != offset || offset < 0)
+    if (number_offset != offset_num || offset_num < 0)
     {
       return ecma_raise_range_error (ECMA_ERR_MSG ("Start offset is outside the bounds of the buffer."));
     }
+
+    offset = (uint32_t) offset_num;
   }
 
   /* 8. */
@@ -91,20 +96,21 @@ ecma_op_dataview_create (const ecma_value_t *arguments_list_p, /**< arguments li
   }
 
   /* 9. */
-  ecma_length_t buffer_byte_length = ecma_arraybuffer_get_length (buffer_p);
+  uint32_t buffer_byte_length = ecma_arraybuffer_get_length (buffer_p);
 
   /* 10. */
-  if ((ecma_length_t) offset > buffer_byte_length)
+  if (offset > buffer_byte_length)
   {
     return ecma_raise_range_error (ECMA_ERR_MSG ("Start offset is outside the bounds of the buffer."));
   }
 
   /* 11 - 12. */
-  uint32_t viewByteLength;
-  if (arguments_list_len > 2)
+  uint32_t view_byte_length;
+  if (arguments_list_len > 2 && !ecma_is_value_undefined (arguments_list_p[2]))
   {
     /* 12.a */
-    ecma_value_t byte_length_value = ecma_op_to_length (arguments_list_p[2], &viewByteLength);
+    ecma_length_t view_byte_to_length;
+    ecma_value_t byte_length_value = ecma_op_to_length (arguments_list_p[2], &view_byte_to_length);
 
     /* 12.b */
     if (ECMA_IS_VALUE_ERROR (byte_length_value))
@@ -113,28 +119,39 @@ ecma_op_dataview_create (const ecma_value_t *arguments_list_p, /**< arguments li
     }
 
     /* 12.c */
-    if ((ecma_number_t) offset + viewByteLength > buffer_byte_length)
+    if ((ecma_number_t) offset + (ecma_number_t) view_byte_to_length > buffer_byte_length)
     {
       return ecma_raise_range_error (ECMA_ERR_MSG ("Start offset is outside the bounds of the buffer."));
     }
+
+    JERRY_ASSERT (view_byte_to_length <= UINT32_MAX);
+    view_byte_length = (uint32_t) view_byte_to_length;
   }
   else
   {
     /* 11.a */
-    viewByteLength = (uint32_t) (buffer_byte_length - (ecma_length_t) offset);
+    view_byte_length = (uint32_t) (buffer_byte_length - offset);
   }
 
   /* 13. */
-  ecma_object_t *object_p = ecma_create_object (ecma_builtin_get (ECMA_BUILTIN_ID_DATAVIEW_PROTOTYPE),
+  ecma_object_t *prototype_obj_p = ecma_op_get_prototype_from_constructor (JERRY_CONTEXT (current_new_target),
+                                                                           ECMA_BUILTIN_ID_DATAVIEW_PROTOTYPE);
+  if (JERRY_UNLIKELY (prototype_obj_p == NULL))
+  {
+    return ECMA_VALUE_ERROR;
+  }
+
+  ecma_object_t *object_p = ecma_create_object (prototype_obj_p,
                                                 sizeof (ecma_dataview_object_t),
                                                 ECMA_OBJECT_TYPE_CLASS);
 
   ecma_dataview_object_t *dataview_obj_p = (ecma_dataview_object_t *) object_p;
   dataview_obj_p->header.u.class_prop.class_id = LIT_MAGIC_STRING_DATAVIEW_UL;
-  dataview_obj_p->header.u.class_prop.u.length = viewByteLength;
+  dataview_obj_p->header.u.class_prop.u.length = view_byte_length;
   dataview_obj_p->buffer_p = buffer_p;
   dataview_obj_p->byte_offset = (uint32_t) offset;
 
+  ecma_deref_object (prototype_obj_p);
   return ecma_make_object_value (object_p);
 } /* ecma_op_dataview_create */
 
@@ -240,7 +257,7 @@ ecma_op_dataview_get_set_view_value (ecma_value_t view, /**< the operation's 'vi
 
   /* 3 - 5. */
   ecma_number_t number_index;
-  ecma_value_t number_index_value = ecma_get_number (request_index, &number_index);
+  ecma_value_t number_index_value = ecma_op_to_integer (request_index, &number_index);
 
   if (ECMA_IS_VALUE_ERROR (number_index_value))
   {
@@ -294,12 +311,18 @@ ecma_op_dataview_get_set_view_value (ecma_value_t view, /**< the operation's 'vi
     JERRY_VLA (lit_utf8_byte_t, swap_block_p, element_size);
     memcpy (swap_block_p, block_p, element_size * sizeof (lit_utf8_byte_t));
     ecma_dataview_swap_order (system_is_little_endian, is_little_endian, element_size, swap_block_p);
-    return ecma_make_number_value (ecma_get_typedarray_element (swap_block_p, id));
+    return ecma_get_typedarray_element (swap_block_p, id);
   }
 
   if (ecma_is_value_number (value_to_set))
   {
-    ecma_set_typedarray_element (block_p, ecma_get_number_from_value (value_to_set), id);
+    ecma_value_t set_element = ecma_set_typedarray_element (block_p, value_to_set, id);
+
+    if (ECMA_IS_VALUE_ERROR (set_element))
+    {
+      return set_element;
+    }
+
     ecma_dataview_swap_order (system_is_little_endian, is_little_endian, element_size, block_p);
   }
 
@@ -307,8 +330,28 @@ ecma_op_dataview_get_set_view_value (ecma_value_t view, /**< the operation's 'vi
 } /* ecma_op_dataview_get_set_view_value */
 
 /**
+ * Check if the value is dataview
+ *
+ * @return true - if value is a DataView object
+ *         false - otherwise
+ */
+bool
+ecma_is_dataview (ecma_value_t value) /**< the target need to be checked */
+{
+  if (!ecma_is_value_object (value))
+  {
+    return false;
+  }
+
+  ecma_dataview_object_t *dataview_object_p = (ecma_dataview_object_t *) ecma_get_object_from_value (value);
+
+  return (ecma_get_object_type (&dataview_object_p->header.object) == ECMA_OBJECT_TYPE_CLASS
+          && dataview_object_p->header.u.class_prop.class_id == LIT_MAGIC_STRING_DATAVIEW_UL);
+} /* ecma_is_dataview */
+
+/**
  * @}
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_DATAVIEW */
+#endif /* ENABLED (JERRY_BUILTIN_DATAVIEW */

@@ -35,11 +35,11 @@ main (void)
   jmem_init ();
   ecma_init ();
 
-  uint32_t num;
+  ecma_length_t num;
 
   ecma_value_t int_num = ecma_make_int32_value (123);
 
-  uint32_t result = ecma_op_to_length (int_num, &num);
+  ecma_value_t result = ecma_op_to_length (int_num, &num);
 
   ecma_free_value (int_num);
 
@@ -51,7 +51,7 @@ main (void)
 
   result = ecma_op_to_length (error_throw, &num);
 
-  ecma_free_value (JERRY_CONTEXT (error_value));
+  jcontext_release_exception ();
 
   TEST_ASSERT (ECMA_IS_VALUE_ERROR (result));
 
@@ -73,11 +73,11 @@ main (void)
   ecma_free_value (negative);
 
   TEST_ASSERT (!ECMA_IS_VALUE_ERROR (result));
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
   TEST_ASSERT (num == 0);
-#else /* !ENABLED (JERRY_ES2015) */
+#else /* !ENABLED (JERRY_ESNEXT) */
   TEST_ASSERT (num == 4294967270);
-#endif /* ENABLED (JERRY_ES2015) */
+#endif /* ENABLED (JERRY_ESNEXT) */
 
   /* +infinity */
   ecma_value_t positive_infinity = ecma_make_number_value (ecma_number_make_infinity (false));
@@ -87,11 +87,11 @@ main (void)
   ecma_free_value (positive_infinity);
 
   TEST_ASSERT (!ECMA_IS_VALUE_ERROR (result));
-#if ENABLED (JERRY_ES2015)
-  TEST_ASSERT (num == UINT32_MAX);
-#else /* !ENABLED (JERRY_ES2015) */
+#if ENABLED (JERRY_ESNEXT)
+  TEST_ASSERT (num == ECMA_NUMBER_MAX_SAFE_INTEGER);
+#else /* !ENABLED (JERRY_ESNEXT) */
   TEST_ASSERT (num == 0);
-#endif /* ENABLED (JERRY_ES2015) */
+#endif /* ENABLED (JERRY_ESNEXT) */
 
   /* -infinity */
   ecma_value_t negative_infinity = ecma_make_number_value (ecma_number_make_infinity (true));

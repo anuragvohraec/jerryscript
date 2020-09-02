@@ -14,6 +14,7 @@
  */
 
 #include "ecma-alloc.h"
+#include "ecma-conversion.h"
 #include "ecma-gc.h"
 #include "ecma-globals.h"
 #include "ecma-helpers.h"
@@ -143,6 +144,109 @@ ecma_collection_push_back (ecma_collection_t *collection_p, /**< value collectio
 
   collection_p->buffer_p = buffer_p;
 } /* ecma_collection_push_back */
+
+/**
+ * Reserve space for the given amount of ecma_values in the collection
+ */
+void
+ecma_collection_reserve (ecma_collection_t *collection_p, /**< value collection */
+                         uint32_t count) /**< number of ecma values to reserve */
+{
+  JERRY_ASSERT (collection_p != NULL);
+  JERRY_ASSERT (UINT32_MAX - count > collection_p->capacity);
+
+  const uint32_t new_capacity = collection_p->capacity + count;
+  const uint32_t old_size = ECMA_COLLECTION_ALLOCATED_SIZE (collection_p->capacity);
+  const uint32_t new_size = ECMA_COLLECTION_ALLOCATED_SIZE (new_capacity);
+
+  ecma_value_t *buffer_p = collection_p->buffer_p;
+  buffer_p = jmem_heap_realloc_block (buffer_p, old_size, new_size);
+
+  collection_p->capacity = new_capacity;
+  collection_p->buffer_p = buffer_p;
+} /* ecma_collection_reserve */
+
+/**
+ * Append a list of values to the end of the collection
+ */
+void
+ecma_collection_append (ecma_collection_t *collection_p, /**< value collection */
+                        const ecma_value_t *buffer_p, /**< values to append */
+                        uint32_t count) /**< number of ecma values to append */
+{
+  JERRY_ASSERT (collection_p != NULL);
+  JERRY_ASSERT (collection_p->capacity >= collection_p->item_count);
+
+  uint32_t free_count = collection_p->capacity - collection_p->item_count;
+
+  if (free_count < count)
+  {
+    ecma_collection_reserve (collection_p, count - free_count);
+  }
+
+  memcpy (collection_p->buffer_p + collection_p->item_count, buffer_p, count * sizeof (ecma_value_t));
+  collection_p->item_count += count;
+} /* ecma_collection_append */
+
+/**
+ * Helper function to check if a given collection have duplicated properties or not
+ *
+ * @return true - if there are duplicated properties in the collection
+ *         false - otherwise
+ */
+bool
+ecma_collection_check_duplicated_entries (ecma_collection_t *collection_p) /**< prop name collection */
+{
+  if (collection_p->item_count == 0)
+  {
+    return false;
+  }
+
+  ecma_value_t *buffer_p = collection_p->buffer_p;
+
+  for (uint32_t i = 0; i < collection_p->item_count - 1; i++)
+  {
+    ecma_string_t *current_name_p = ecma_get_prop_name_from_value (buffer_p[i]);
+
+    for (uint32_t j = i + 1; j < collection_p->item_count; j++)
+    {
+      if (ecma_compare_ecma_strings (current_name_p, ecma_get_prop_name_from_value (buffer_p[j])))
+      {
+        return true;
+      }
+    }
+  }
+
+  return false;
+} /* ecma_collection_check_duplicated_entries */
+
+/**
+ * Check the string value existance in the collection.
+ *
+ * Used by:
+ *         - ecma_builtin_json_stringify step 4.b.ii.5
+ *         - ecma_op_object_enumerate
+ *
+ * @return true, if the string is already in the collection.
+ */
+bool
+ecma_collection_has_string_value (ecma_collection_t *collection_p, /**< collection */
+                                  ecma_string_t *string_p) /**< string */
+{
+  ecma_value_t *buffer_p = collection_p->buffer_p;
+
+  for (uint32_t i = 0; i < collection_p->item_count; i++)
+  {
+    ecma_string_t *current_p = ecma_get_string_from_value (buffer_p[i]);
+
+    if (ecma_compare_ecma_strings (current_p, string_p))
+    {
+      return true;
+    }
+  }
+
+  return false;
+} /* ecma_collection_has_string_value */
 
 /**
  * @}

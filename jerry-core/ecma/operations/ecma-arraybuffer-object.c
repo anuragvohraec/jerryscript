@@ -15,6 +15,7 @@
 
 #include "ecma-arraybuffer-object.h"
 #include "ecma-try-catch-macro.h"
+#include "ecma-typedarray-object.h"
 #include "ecma-objects.h"
 #include "ecma-builtins.h"
 #include "ecma-exceptions.h"
@@ -23,7 +24,7 @@
 #include "ecma-helpers.h"
 #include "jmem.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY)
+#if ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 
 /** \addtogroup ecma ECMA
  * @{
@@ -43,7 +44,7 @@
  * @return ecma_object_t *
  */
 ecma_object_t *
-ecma_arraybuffer_new_object (ecma_length_t length) /**< length of the arraybuffer */
+ecma_arraybuffer_new_object (uint32_t length) /**< length of the arraybuffer */
 {
   ecma_object_t *prototype_obj_p = ecma_builtin_get (ECMA_BUILTIN_ID_ARRAYBUFFER_PROTOTYPE);
   ecma_object_t *object_p = ecma_create_object (prototype_obj_p,
@@ -72,7 +73,7 @@ ecma_arraybuffer_new_object (ecma_length_t length) /**< length of the arraybuffe
  * @return ecma_object_t *, pointer to the created ArrayBuffer object
  */
 ecma_object_t *
-ecma_arraybuffer_new_object_external (ecma_length_t length, /**< length of the buffer_p to use */
+ecma_arraybuffer_new_object_external (uint32_t length, /**< length of the buffer_p to use */
                                       void *buffer_p, /**< pointer for ArrayBuffer's buffer backing */
                                       ecma_object_native_free_callback_t free_cb) /**< buffer free callback */
 {
@@ -92,7 +93,6 @@ ecma_arraybuffer_new_object_external (ecma_length_t length, /**< length of the b
   return object_p;
 } /* ecma_arraybuffer_new_object_external */
 
-
 /**
  * ArrayBuffer object creation operation.
  *
@@ -104,7 +104,7 @@ ecma_arraybuffer_new_object_external (ecma_length_t length, /**< length of the b
 ecma_value_t
 ecma_op_create_arraybuffer_object (const ecma_value_t *arguments_list_p, /**< list of arguments that
                                                                           *   are passed to String constructor */
-                                   ecma_length_t arguments_list_len) /**< length of the arguments' list */
+                                   uint32_t arguments_list_len) /**< length of the arguments' list */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -119,16 +119,12 @@ ecma_op_create_arraybuffer_object (const ecma_value_t *arguments_list_p, /**< li
     }
     else
     {
-      ecma_value_t to_number_value = ecma_op_to_number (arguments_list_p[0]);
+      ecma_value_t to_number_value = ecma_op_to_number (arguments_list_p[0], &length_num);
 
       if (ECMA_IS_VALUE_ERROR (to_number_value))
       {
         return to_number_value;
       }
-
-      length_num = ecma_get_number_from_value (to_number_value);
-
-      ecma_free_value (to_number_value);
     }
 
     if (ecma_number_is_nan (length_num))
@@ -169,9 +165,9 @@ ecma_is_arraybuffer (ecma_value_t target) /**< the target value */
 /**
  * Helper function: return the length of the buffer inside the arraybuffer object
  *
- * @return ecma_length_t, the length of the arraybuffer
+ * @return uint32_t, the length of the arraybuffer
  */
-ecma_length_t JERRY_ATTR_PURE
+uint32_t JERRY_ATTR_PURE
 ecma_arraybuffer_get_length (ecma_object_t *object_p) /**< pointer to the ArrayBuffer object */
 {
   JERRY_ASSERT (ecma_object_class_is (object_p, LIT_MAGIC_STRING_ARRAY_BUFFER_UL));
@@ -280,4 +276,4 @@ ecma_arraybuffer_detach (ecma_object_t *object_p) /**< pointer to the ArrayBuffe
  * @}
  * @}
  */
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY) */
+#endif /* ENABLED (JERRY_BUILTIN_TYPEDARRAY) */

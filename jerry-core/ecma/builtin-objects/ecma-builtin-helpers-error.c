@@ -40,7 +40,7 @@
 ecma_value_t
 ecma_builtin_helper_error_dispatch_call (ecma_standard_error_t error_type, /**< native error type */
                                          const ecma_value_t *arguments_list_p, /**< arguments list */
-                                         ecma_length_t arguments_list_len) /**< number of arguments */
+                                         uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -60,16 +60,13 @@ ecma_builtin_helper_error_dispatch_call (ecma_standard_error_t error_type, /**< 
     ecma_deref_ecma_string (message_string_p);
     return ecma_make_object_value (new_error_object_p);
   }
-  else
-  {
-    ecma_object_t *new_error_object_p = ecma_new_standard_error (error_type);
 
-    return ecma_make_object_value (new_error_object_p);
-  }
+  ecma_object_t *new_error_object_p = ecma_new_standard_error (error_type);
+
+  return ecma_make_object_value (new_error_object_p);
 } /* ecma_builtin_helper_error_dispatch_call */
 
 /**
  * @}
  * @}
  */
-

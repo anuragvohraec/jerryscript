@@ -127,11 +127,11 @@ def extract_magic_string_refs(debug=False):
                 guard_stack.append([process_guard(if_match.group(1))])
             elif elif_match is not None:
                 guards = guard_stack[-1]
-                guards[-1] = '!(%s)' % guards[-1]
+                guards[-1] = '!(%s)' % guards[-1].strip()
                 guards.append(process_guard(elif_match.group(1)))
             elif else_match is not None:
                 guards = guard_stack[-1]
-                guards[-1] = '!(%s)' % guards[-1]
+                guards[-1] = '!(%s)' % guards[-1].strip()
             elif endif_match is not None:
                 guard_stack.pop()
 
@@ -221,8 +221,6 @@ def generate_header(gen_file):
 
 
 def generate_magic_string_defs(gen_file, defs):
-    print(file=gen_file) # empty line separator
-
     last_guards = set([()])
     for str_ref, str_value, guards in defs:
         if last_guards != guards:

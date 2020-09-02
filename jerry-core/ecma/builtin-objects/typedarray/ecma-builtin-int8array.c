@@ -21,7 +21,7 @@
 #include "ecma-typedarray-object.h"
 #include "jrt.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY)
+#if ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 
 #define ECMA_BUILTINS_INTERNAL
 #include "ecma-builtins-internal.h"
@@ -49,7 +49,7 @@
  */
 ecma_value_t
 ecma_builtin_int8array_dispatch_call (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                      ecma_length_t arguments_list_len) /**< number of arguments */
+                                      uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
@@ -63,7 +63,7 @@ ecma_builtin_int8array_dispatch_call (const ecma_value_t *arguments_list_p, /**<
  */
 ecma_value_t
 ecma_builtin_int8array_dispatch_construct (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                           ecma_length_t arguments_list_len) /**< number of arguments */
+                                           uint32_t arguments_list_len) /**< number of arguments */
 {
   return ecma_typedarray_helper_dispatch_construct (arguments_list_p, arguments_list_len,
                                                     ECMA_INT8_ARRAY);
@@ -75,4 +75,4 @@ ecma_builtin_int8array_dispatch_construct (const ecma_value_t *arguments_list_p,
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY) */
+#endif /* ENABLED (JERRY_BUILTIN_TYPEDARRAY) */

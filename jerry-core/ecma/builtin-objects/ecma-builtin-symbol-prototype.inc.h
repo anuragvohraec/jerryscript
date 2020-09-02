@@ -19,7 +19,7 @@
 
 #include "ecma-builtin-helpers-macro-defines.inc.h"
 
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
 
 /* Object properties:
  *  (property name, object pointer getter) */
@@ -28,22 +28,22 @@ OBJECT_VALUE (LIT_MAGIC_STRING_CONSTRUCTOR,
               ECMA_BUILTIN_ID_SYMBOL,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
 
-NUMBER_VALUE (LIT_MAGIC_STRING_LENGTH,
-              0,
-              ECMA_PROPERTY_FLAG_WRITABLE)
-
-ROUTINE (LIT_MAGIC_STRING_TO_STRING_UL, ecma_builtin_symbol_prototype_object_to_string, 0, 0)
-ROUTINE (LIT_MAGIC_STRING_VALUE_OF_UL, ecma_builtin_symbol_prototype_object_value_of, 0, 0)
+ROUTINE (LIT_MAGIC_STRING_TO_STRING_UL, ECMA_SYMBOL_PROTOTYPE_TO_STRING, 0, 0)
+ROUTINE (LIT_MAGIC_STRING_VALUE_OF_UL, ECMA_SYMBOL_PROTOTYPE_VALUE_OF, 0, 0)
 ROUTINE_CONFIGURABLE_ONLY (LIT_GLOBAL_SYMBOL_TO_PRIMITIVE,
-                           ecma_builtin_symbol_prototype_object_to_primitive,
+                           ECMA_SYMBOL_PROTOTYPE_TO_PRIMITIVE,
                            0,
-                           0)
+                           1)
 
 /* ECMA-262 v6, 19.4.3.4 */
 STRING_VALUE (LIT_GLOBAL_SYMBOL_TO_STRING_TAG,
               LIT_MAGIC_STRING_SYMBOL_UL,
               ECMA_PROPERTY_FLAG_CONFIGURABLE)
 
-#endif /* ENABLED (JERRY_ES2015) */
+/* ECMA-262, v11, 19.4.3.2 */
+ACCESSOR_READ_ONLY (LIT_MAGIC_STRING_DESCRIPTION,
+                    ECMA_SYMBOL_PROTOTYPE_DESCRIPTION,
+                    ECMA_PROPERTY_FLAG_CONFIGURABLE)
+#endif /* ENABLED (JERRY_ESNEXT) */
 
 #include "ecma-builtin-helpers-macro-undefs.inc.h"

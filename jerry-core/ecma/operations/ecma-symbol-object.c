@@ -22,8 +22,9 @@
 #include "ecma-objects.h"
 #include "ecma-objects-general.h"
 #include "ecma-symbol-object.h"
+#include "lit-char-helpers.h"
 
-#if ENABLED (JERRY_ES2015)
+#if ENABLED (JERRY_ESNEXT)
 
 /** \addtogroup ecma ECMA
  * @{
@@ -42,16 +43,16 @@
  */
 ecma_value_t
 ecma_op_create_symbol (const ecma_value_t *arguments_list_p, /**< list of arguments */
-                       ecma_length_t arguments_list_len) /**< length of the arguments' list */
+                       uint32_t arguments_list_len) /**< length of the arguments' list */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
   ecma_value_t string_desc;
 
   /* 1-3. */
-  if (arguments_list_len == 0)
+  if (arguments_list_len == 0 || ecma_is_value_undefined (arguments_list_p[0]))
   {
-    string_desc = ecma_make_magic_string_value (LIT_MAGIC_STRING__EMPTY);
+    string_desc = ECMA_VALUE_UNDEFINED;
   }
   else
   {
@@ -100,13 +101,13 @@ ecma_op_create_symbol_object (const ecma_value_t value) /**< symbol value */
  *
  * @return pointer to ecma-string descriptor
  */
-ecma_string_t *
+ecma_value_t
 ecma_get_symbol_description (ecma_string_t *symbol_p) /**< ecma-symbol */
 {
   JERRY_ASSERT (symbol_p != NULL);
   JERRY_ASSERT (ecma_prop_name_is_symbol (symbol_p));
 
-  return ecma_get_string_from_value (((ecma_extended_string_t *) symbol_p)->u.symbol_descriptor);
+  return ((ecma_extended_string_t *) symbol_p)->u.symbol_descriptor;
 } /* ecma_get_symbol_description */
 
 /**
@@ -125,55 +126,57 @@ ecma_get_symbol_descriptive_string (ecma_value_t symbol_value) /**< symbol to st
 
   /* 2 - 3. */
   ecma_string_t *symbol_p = ecma_get_symbol_from_value (symbol_value);
-  ecma_string_t *string_desc_p = ecma_get_symbol_description (symbol_p);
+  ecma_value_t string_desc = ecma_get_symbol_description (symbol_p);
+  ecma_stringbuilder_t builder = ecma_stringbuilder_create_raw ((lit_utf8_byte_t *) ("Symbol("), 7);
 
-  /* 5. */
-  ecma_string_t *concat_p = ecma_concat_ecma_strings (ecma_get_magic_string (LIT_MAGIC_STRING_SYMBOL_LEFT_PAREN_UL),
-                                                      string_desc_p);
+  if (!ecma_is_value_undefined (string_desc))
+  {
+    ecma_string_t *string_desc_p = ecma_get_string_from_value (string_desc);
+    ecma_stringbuilder_append (&builder, string_desc_p);
+  }
 
-  ecma_string_t *final_str_p = ecma_append_magic_string_to_string (concat_p, LIT_MAGIC_STRING_RIGHT_PAREN);
-
-  return ecma_make_string_value (final_str_p);
+  ecma_stringbuilder_append_byte (&builder, LIT_CHAR_RIGHT_PAREN);
+  return ecma_make_string_value (ecma_stringbuilder_finalize (&builder));
 } /* ecma_get_symbol_descriptive_string */
 
 /**
- * Helper for Symbol.prototype.{toString, valueOf} routines
+ * thisSymbolValue abstract operation
  *
- * See also: 19.4.3.2, 19.4.3.3
+ * See also:
+ *          ECMA-262 v11, 19.4.3
  *
  * @return ecma value
  *         Returned value must be freed with ecma_free_value.
  */
 ecma_value_t
-ecma_symbol_to_string_helper (ecma_value_t this_arg, /**< this argument value */
-                              bool is_to_string) /**< true - perform the 'toString' routine steps
-                                                  *   false - perform the 'valueOf' routine steps */
+ecma_symbol_this_value (ecma_value_t this_arg) /**< this argument value */
 {
+  /* 1. */
   if (ecma_is_value_symbol (this_arg))
   {
-    return is_to_string ? ecma_get_symbol_descriptive_string (this_arg) : ecma_copy_value (this_arg);
+    return this_arg;
   }
 
+  /* 2. */
   if (ecma_is_value_object (this_arg))
   {
     ecma_object_t *object_p = ecma_get_object_from_value (this_arg);
 
     if (ecma_get_object_type (object_p) == ECMA_OBJECT_TYPE_CLASS)
     {
-      ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
+      ecma_extended_object_t *ext_obj_p = (ecma_extended_object_t *) object_p;
 
-      if (ext_object_p->u.class_prop.class_id == LIT_MAGIC_STRING_SYMBOL_UL)
+      if (ext_obj_p->u.class_prop.class_id == LIT_MAGIC_STRING_SYMBOL_UL)
       {
-        return (is_to_string ? ecma_get_symbol_descriptive_string (ext_object_p->u.class_prop.u.value)
-                             : ecma_copy_value (ext_object_p->u.class_prop.u.value));
+        return ext_obj_p->u.class_prop.u.value;
       }
     }
   }
 
-  return ecma_raise_type_error (ECMA_ERR_MSG ("Argument 'this' is must be a Symbol."));
-} /* ecma_symbol_to_string_helper */
-
-#endif /* ENABLED (JERRY_ES2015) */
+  /* 3. */
+  return ecma_raise_type_error (ECMA_ERR_MSG ("Argument 'this' must be a Symbol."));
+} /* ecma_symbol_this_value */
+#endif /* ENABLED (JERRY_ESNEXT) */
 
 /**
  * @}

@@ -18,11 +18,11 @@
 #include "ecma-dataview-object.h"
 #include "ecma-gc.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_DATAVIEW)
+#if ENABLED (JERRY_BUILTIN_DATAVIEW)
 
-#ifdef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
+#if !ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 #error "DataView builtin requires ES2015 TypedArray builtin"
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
+#endif /* !ENABLED (JERRY_BUILTIN_TYPEDARRAY) */
 
 #define ECMA_BUILTINS_INTERNAL
 #include "ecma-builtins-internal.h"
@@ -142,7 +142,7 @@ ecma_builtin_dataview_prototype_dispatch_routine (uint16_t builtin_routine_id, /
                                                   ecma_value_t this_arg, /**< 'this' argument value */
                                                   const ecma_value_t arguments_list_p[], /**< list of arguments
                                                                                           *   passed to routine */
-                                                  ecma_length_t arguments_number) /**< length of arguments' list */
+                                                  uint32_t arguments_number) /**< length of arguments' list */
 {
   ecma_value_t byte_offset = arguments_number > 0 ? arguments_list_p[0] : ECMA_VALUE_UNDEFINED;
 
@@ -208,4 +208,4 @@ ecma_builtin_dataview_prototype_dispatch_routine (uint16_t builtin_routine_id, /
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_DATAVIEW */
+#endif /* ENABLED (JERRY_BUILTIN_DATAVIEW */

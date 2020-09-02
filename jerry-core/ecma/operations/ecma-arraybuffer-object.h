@@ -18,7 +18,7 @@
 
 #include "ecma-globals.h"
 
-#if ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY)
+#if ENABLED (JERRY_BUILTIN_TYPEDARRAY)
 
 /** \addtogroup ecma ECMA
  * @{
@@ -28,20 +28,20 @@
  */
 
 ecma_value_t
-ecma_op_create_arraybuffer_object (const ecma_value_t *, ecma_length_t);
+ecma_op_create_arraybuffer_object (const ecma_value_t *, uint32_t);
 
 /**
  * Helper functions for arraybuffer.
  */
 ecma_object_t *
-ecma_arraybuffer_new_object (ecma_length_t lengh);
+ecma_arraybuffer_new_object (uint32_t lengh);
 ecma_object_t *
-ecma_arraybuffer_new_object_external (ecma_length_t length,
+ecma_arraybuffer_new_object_external (uint32_t length,
                                       void *buffer_p,
                                       ecma_object_native_free_callback_t free_cb);
 lit_utf8_byte_t * JERRY_ATTR_PURE
 ecma_arraybuffer_get_buffer (ecma_object_t *obj_p);
-ecma_length_t JERRY_ATTR_PURE
+uint32_t JERRY_ATTR_PURE
 ecma_arraybuffer_get_length (ecma_object_t *obj_p);
 bool JERRY_ATTR_PURE
 ecma_arraybuffer_is_detached (ecma_object_t *obj_p);
@@ -57,5 +57,5 @@ ecma_is_arraybuffer (ecma_value_t val);
  * @}
  */
 
-#endif /* ENABLED (JERRY_ES2015_BUILTIN_TYPEDARRAY) */
+#endif /* ENABLED (JERRY_BUILTIN_TYPEDARRAY) */
 #endif /* !ECMA_ARRAYBUFFER_OBJECT_H */

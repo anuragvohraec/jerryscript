@@ -51,12 +51,12 @@
  */
 ecma_value_t
 ecma_builtin_type_error_thrower_dispatch_call (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                               ecma_length_t arguments_list_len) /**< number of arguments */
+                                               uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
-  /* The object should throw TypeError */
-  return ecma_raise_type_error (ECMA_ERR_MSG (""));
+  return ecma_raise_type_error (ECMA_ERR_MSG ("'caller', 'callee', and 'arguments' properties may not be accessed"
+                                              " on strict mode functions or the arguments objects for calls to them"));
 } /* ecma_builtin_type_error_thrower_dispatch_call */
 
 /**
@@ -69,12 +69,11 @@ ecma_builtin_type_error_thrower_dispatch_call (const ecma_value_t *arguments_lis
  */
 ecma_value_t
 ecma_builtin_type_error_thrower_dispatch_construct (const ecma_value_t *arguments_list_p, /**< arguments list */
-                                                    ecma_length_t arguments_list_len) /**< number of arguments */
+                                                    uint32_t arguments_list_len) /**< number of arguments */
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
-  /* The object is not a constructor */
-  return ecma_raise_type_error (ECMA_ERR_MSG (""));
+  return ecma_builtin_type_error_thrower_dispatch_call (arguments_list_p, arguments_list_len);
 } /* ecma_builtin_type_error_thrower_dispatch_construct */
 
 /**
